@@ -4,11 +4,12 @@
  *  Created on: 2025/3/27
  *  Author: Jimmy 
 */
-#include <stdio.h>
-#include <stdlib.h> 
+ 
 #include <time.h>
 #include "utils.h"
+#include <pthread.h>
 
+# define NUM_THREADS 4
 
 
 int main () {
@@ -46,8 +47,39 @@ int main () {
     }
 
     printf ("Matrix initialization completed.\n");
-    free (matrix);
+    pthread_t threads[NUM_THREADS];
+    thread_args_t thread_args[NUM_THREADS];
+    thread_data_t thread_results[NUM_THREADS]; 
+    
+    size_t rows_per_thread = MATRIX_SIZE / NUM_THREADS;
+    printf("\n %d 個thread開始作業...\n", NUM_THREADS);
+    for (int i = 0; i < NUM_THREADS; i++) {
+        thread_args[i].thread_id = i;
+        thread_args[i].start_row = i * rows_per_thread;
+        
+        // 如果是最後一個執行緒，就包辦剩下的所有行數 (避免無法整除的問題)
+        thread_args[i].end_row = (i == NUM_THREADS - 1) ? MATRIX_SIZE : (i + 1) * rows_per_thread;
+        thread_args[i].matrix = matrix;
+        thread_args[i].thread_results = thread_results;
+
+        // 建立執行緒並執行 worker_task
+        pthread_create(&threads[i], NULL, worker_task, &thread_args[i]);
+    }
+
+    // 階段 2：等待所有執行緒完工 (Join/Barrier)
  
+    pthread_join(threads[0], NULL); 
+    pthread_join(threads[1], NULL);
+    pthread_join(threads[2], NULL);
+    pthread_join(threads[3], NULL);
+
+    double global_sum = 0.0;
+    for (int i = 0; i < NUM_THREADS; i++) {
+        global_sum += thread_results[i].local_sum;
+    }
+    printf("\n所有執行緒完成計算，矩陣總和: %f\n", global_sum);
+    free (matrix);
+    printf("Matrix memory freed.\n");
     return 0;
 }
 
